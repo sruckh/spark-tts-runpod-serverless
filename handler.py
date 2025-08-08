@@ -8,25 +8,27 @@ This module provides a RunPod serverless wrapper around the Spark-TTS model
 for text-to-speech generation with voice cloning capabilities.
 """
 
-import os
-import sys
+import asyncio
 import json
 import logging
+import os
+import sys
 import tempfile
 import traceback
 from datetime import datetime
-from typing import Dict, Any, Optional
-
-import torch
-import soundfile as sf
+from typing import Any, Dict, Optional
 
 # Add project root to path for imports
 sys.path.insert(0, "/runpod-volume/Spark-TTS")
 
+import runpod
+import soundfile as sf
+import torch
+
 from cli.SparkTTS import SparkTTS
+from utils.ass_utils import ASSGenerator
 from utils.s3_utils import S3Manager
 from utils.whisper_utils import WhisperXProcessor
-from utils.ass_utils import ASSGenerator
 
 # Configure logging
 logging.basicConfig(
@@ -52,14 +54,14 @@ def get_device() -> torch.device:
         device = torch.device("cuda:0")
         logger.info(f"Using CUDA device: {device}")
         return device
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         device = torch.device("mps:0")
-        logger.info(f"Using MPS device: {device}")
+        logger.info("Using MPS device: %s", device)
         return device
-    else:
-        device = torch.device("cpu")
-        logger.info("Using CPU device")
-        return device
+
+    device = torch.device("cpu")
+    logger.info("Using CPU device")
+    return device
 
 
 def initialize_model() -> SparkTTS:
@@ -77,16 +79,18 @@ def initialize_model() -> SparkTTS:
     if MODEL_INSTANCE is None:
         try:
             device = get_device()
-            logger.info(f"Initializing SparkTTS model from: {MODEL_DIR}")
+            logger.info("Initializing SparkTTS model from: %s", MODEL_DIR)
 
             if not os.path.exists(MODEL_DIR):
-                raise FileNotFoundError(f"Model directory not found: {MODEL_DIR}")
+                raise FileNotFoundError(
+                    f"Model directory not found: {MODEL_DIR}"
+                )
 
             MODEL_INSTANCE = SparkTTS(MODEL_DIR, device)
             logger.info("Model initialized successfully")
 
         except Exception as e:
-            logger.error(f"Failed to initialize model: {str(e)}")
+            logger.error("Failed to initialize model: %s", str(e))
             logger.error(traceback.format_exc())
             raise
 
@@ -107,7 +111,7 @@ def initialize_s3_manager() -> S3Manager:
             S3_MANAGER = S3Manager()
             logger.info("S3 manager initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize S3 manager: {str(e)}")
+            logger.error("Failed to initialize S3 manager: %s", str(e))
             raise
 
     return S3_MANAGER
@@ -128,7 +132,7 @@ def initialize_whisperx() -> WhisperXProcessor:
             WHISPERX_PROCESSOR = WhisperXProcessor(device=device)
             logger.info("WhisperX processor initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize WhisperX: {str(e)}")
+            logger.error("Failed to initialize WhisperX: %s", str(e))
             raise
 
     return WHISPERX_PROCESSOR
@@ -155,7 +159,9 @@ def validate_input(job_input: Dict[str, Any]) -> Dict[str, Any]:
     if "gender" in job_input:
         valid_genders = ["male", "female"]
         if job_input["gender"] not in valid_genders:
-            raise ValueError(f"Invalid gender. Must be one of: {valid_genders}")
+            raise ValueError(
+                f"Invalid gender. Must be one of: {valid_genders}"
+            )
 
     # Validate pitch if provided
     if "pitch" in job_input:
@@ -172,19 +178,22 @@ def validate_input(job_input: Dict[str, Any]) -> Dict[str, Any]:
     # Validate voice cloning parameters
     if "prompt_speech_url" in job_input and "gender" in job_input:
         raise ValueError(
-            "Cannot specify both prompt_speech_url (voice cloning) and gender (controllable TTS)"
+            "Cannot specify both prompt_speech_url (voice cloning) "
+            "and gender (controllable TTS)"
         )
 
     if "prompt_speech_url" not in job_input and "gender" not in job_input:
         raise ValueError(
-            "Must specify either prompt_speech_url for voice cloning or gender for controllable TTS"
+            "Must specify either prompt_speech_url for voice cloning "
+            "or gender for controllable TTS"
         )
 
     # Validate generation parameters
     validated = {
         "text": job_input["text"].strip(),
         "prompt_text": job_input.get("prompt_text", "").strip() or None,
-        "prompt_speech_url": job_input.get("prompt_speech_url", "").strip() or None,
+        "prompt_speech_url": job_input.get("prompt_speech_url", "").strip()
+        or None,
         "gender": job_input.get("gender"),
         "pitch": job_input.get("pitch"),
         "speed": job_input.get("speed"),
@@ -237,11 +246,13 @@ async def download_voice_file(s3_manager: S3Manager, voice_url: str) -> str:
         # Download from S3
         await s3_manager.download_file(voice_url, tmp_path)
 
-        logger.info(f"Downloaded voice file to: {tmp_path}")
+        logger.info("Downloaded voice file to: %s", tmp_path)
         return tmp_path
 
     except Exception as e:
-        logger.error(f"Failed to download voice file from {voice_url}: {str(e)}")
+        logger.error(
+            "Failed to download voice file from %s: %s", voice_url, str(e)
+        )
         raise
 
 
@@ -266,11 +277,13 @@ async def upload_output_file(
         s3_key = f"output/{filename}"
         presigned_url = await s3_manager.upload_file(local_path, s3_key)
 
-        logger.info(f"Uploaded output file: {s3_key}")
+        logger.info("Uploaded output file: %s", s3_key)
         return presigned_url
 
     except Exception as e:
-        logger.error(f"Failed to upload output file: {str(e)}")
+        logger.error(
+            "Failed to upload output file: %s", str(e)
+        )
         raise
 
 
@@ -311,7 +324,7 @@ def generate_audio(
         return wav
 
     except Exception as e:
-        logger.error(f"Failed to generate audio: {str(e)}")
+        logger.error("Failed to generate audio: %s", str(e))
         logger.error(traceback.format_exc())
         raise
 
@@ -351,10 +364,10 @@ def save_audio_file(
         else:
             raise ValueError(f"Unsupported output format: {output_format}")
 
-        logger.info(f"Audio saved to: {output_path}")
+        logger.info("Audio saved to: %s", output_path)
 
     except Exception as e:
-        logger.error(f"Failed to save audio file: {str(e)}")
+        logger.error("Failed to save audio file: %s", str(e))
         raise
 
 
@@ -369,7 +382,7 @@ async def handler(job):
         Dict[str, Any]: Job result with output URLs and metadata
     """
     job_input = job.get("input", {})
-    logger.info(f"Received job input: {json.dumps(job_input, indent=2)}")
+    logger.info("Received job input: %s", json.dumps(job_input, indent=2))
 
     # Temporary file paths to clean up
     temp_files = []
@@ -415,7 +428,7 @@ async def handler(job):
         )
 
         # Prepare response
-        result = {
+        response = {
             "audio_url": audio_url,
             "filename": output_filename,
             "duration_seconds": len(wav) / model.sample_rate,
@@ -435,11 +448,15 @@ async def handler(job):
                 whisperx = initialize_whisperx()
 
                 # Generate word-level timings
-                word_timings = await whisperx.transcribe_with_timings(temp_audio_path)
+                word_timings = await whisperx.transcribe_with_timings(
+                    temp_audio_path
+                )
 
                 # Generate ASS subtitles
                 ass_generator = ASSGenerator()
-                ass_content = ass_generator.generate(params["text"], word_timings)
+                ass_content = ass_generator.generate(
+                    params["text"], word_timings
+                )
 
                 # Save ASS file
                 ass_filename = f"sparktts_{timestamp}.ass"
@@ -455,21 +472,21 @@ async def handler(job):
                     s3_manager, temp_ass_path, ass_filename
                 )
 
-                result["subtitle_url"] = ass_url
-                result["subtitle_format"] = "ass"
-                result["word_timings"] = word_timings
+                response["subtitle_url"] = ass_url
+                response["subtitle_format"] = "ass"
+                response["word_timings"] = word_timings
 
                 logger.info("Subtitles generated successfully")
 
             except Exception as e:
-                logger.error(f"Failed to generate subtitles: {str(e)}")
-                result["subtitle_error"] = str(e)
+                logger.error("Failed to generate subtitles: %s", str(e))
+                response["subtitle_error"] = str(e)
 
         logger.info("Job completed successfully")
-        return result
+        return response
 
     except Exception as e:
-        error_msg = f"Job failed: {str(e)}"
+        error_msg = "Job failed: %s" % str(e)
         logger.error(error_msg)
         logger.error(traceback.format_exc())
 
@@ -484,7 +501,7 @@ async def handler(job):
                     logger.debug(f"Cleaned up temporary file: {temp_file}")
             except Exception as e:
                 logger.warning(
-                    f"Failed to clean up temporary file {temp_file}: {str(e)}"
+                    "Failed to clean up temporary file %s: %s", temp_file, str(e)
                 )
 
 
@@ -498,24 +515,21 @@ def runpod_handler(job):
     Returns:
         Dict[str, Any]: Job result
     """
-    import asyncio
-
     try:
         # Run the async handler
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(handler(job))
+        response = loop.run_until_complete(handler(job))
         loop.close()
-        return result
+        return response
 
     except Exception as e:
-        logger.error(f"Handler wrapper failed: {str(e)}")
+        logger.error("Handler wrapper failed: %s", str(e))
         return {"error": str(e)}
 
 
 if __name__ == "__main__":
     # Test the handler locally
-    import runpod
 
     # Set up test job
     test_job = {

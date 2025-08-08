@@ -7,13 +7,14 @@ This module provides WhisperX integration for generating word-level timings
 for subtitle generation.
 """
 
-import os
 import logging
+import os
 import tempfile
-from typing import List, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Union
+
+import soundfile as sf
 import torch
 import whisperx
-import soundfile as sf
 
 logger = logging.getLogger(__name__)
 
@@ -56,19 +57,19 @@ class WhisperXProcessor:
         self.align_model = None
         self.align_metadata = None
 
-        logger.info(f"WhisperX processor initialized: {model_size} on {self.device}")
+        logger.info("WhisperX processor initialized: %s on %s", model_size, self.device)
 
     def _load_transcription_model(self):
         """Load the transcription model if not already loaded."""
         if self.model is None:
             try:
-                logger.info(f"Loading WhisperX model: {self.model_size}")
+                logger.info("Loading WhisperX model: %s", self.model_size)
                 self.model = whisperx.load_model(
                     self.model_size, self.device, compute_type=self.compute_type
                 )
                 logger.info("Transcription model loaded successfully")
             except Exception as e:
-                logger.error(f"Failed to load transcription model: {str(e)}")
+                logger.error("Failed to load transcription model: %s", str(e))
                 raise
 
     def _load_alignment_model(self, language: str = "en"):
@@ -80,13 +81,13 @@ class WhisperXProcessor:
         """
         if self.align_model is None or self.align_metadata is None:
             try:
-                logger.info(f"Loading alignment model for language: {language}")
+                logger.info("Loading alignment model for language: %s", language)
                 self.align_model, self.align_metadata = whisperx.load_align_model(
                     language_code=language, device=self.device
                 )
                 logger.info("Alignment model loaded successfully")
             except Exception as e:
-                logger.error(f"Failed to load alignment model: {str(e)}")
+                logger.error("Failed to load alignment model: %s", str(e))
                 raise
 
     def _detect_language(self, audio_path: str) -> str:
@@ -109,7 +110,7 @@ class WhisperXProcessor:
             result = self.model.transcribe(audio, batch_size=16)
             detected_language = result.get("language", "en")
 
-            logger.info(f"Detected language: {detected_language}")
+            logger.info("Detected language: %s", detected_language)
             return detected_language
 
         except Exception as e:
@@ -118,7 +119,7 @@ class WhisperXProcessor:
             )
             return "en"
 
-    def transcribe(self, audio_path: str, language: str = None) -> Dict[str, Any]:
+    def transcribe(self, audio_path: str, language: Optional[str] = None) -> Dict[str, Any]:
         """
         Transcribe audio file without word-level alignment.
 
@@ -149,7 +150,7 @@ class WhisperXProcessor:
             raise
 
     async def transcribe_with_timings(
-        self, audio_path: str, language: str = None
+        self, audio_path: str, language: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Transcribe audio with word-level timestamps.

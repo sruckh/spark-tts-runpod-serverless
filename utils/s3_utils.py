@@ -6,9 +6,9 @@ Licensed under the Apache License, Version 2.0
 This module handles S3 operations for voice files and output audio.
 """
 
-import os
 import logging
-from typing import Dict, Any
+import os
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import boto3
@@ -54,15 +54,14 @@ class S3Manager:
 
             # Test connection
             self.s3_client.head_bucket(Bucket=self.bucket_name)
-            logger.info(f"S3 connection established for bucket: {self.bucket_name}")
+            logger.info("S3 connection established for bucket: %s", self.bucket_name)
 
-        except NoCredentialsError:
-            raise ValueError("Invalid AWS credentials")
+        except NoCredentialsError as exc:
+            raise ValueError("Invalid AWS credentials") from exc
         except ClientError as e:
             if e.response["Error"]["Code"] == "404":
-                raise ValueError(f"S3 bucket not found: {self.bucket_name}")
-            else:
-                raise ValueError(f"S3 connection failed: {str(e)}")
+                raise ValueError(f"S3 bucket not found: {self.bucket_name}") from e
+            raise ValueError(f"S3 connection failed: {str(e)}") from e
 
     def _parse_s3_url(self, url: str) -> tuple[str, str]:
         """
@@ -85,7 +84,7 @@ class S3Manager:
             key = parsed.path.lstrip("/")
             return bucket, key
 
-        elif parsed.scheme in ["http", "https"]:
+        if parsed.scheme in ["http", "https"]:
             # Pre-signed URL
             if "s3.amazonaws.com" in parsed.netloc:
                 # Virtual-hosted style: https://bucket.s3.amazonaws.com/key
@@ -119,8 +118,8 @@ class S3Manager:
         try:
             if source_url.startswith("http"):
                 # Use pre-signed URL directly
-                import aiohttp
                 import aiofiles
+                import aiohttp
 
                 async with aiohttp.ClientSession() as session:
                     async with session.get(source_url) as response:
@@ -130,21 +129,21 @@ class S3Manager:
                             async for chunk in response.content.iter_chunked(8192):
                                 await f.write(chunk)
 
-                logger.info(f"Downloaded from pre-signed URL to: {local_path}")
+                logger.info("Downloaded from pre-signed URL to: %s", local_path)
 
             else:
                 # Parse S3 URL and download directly
                 bucket, key = self._parse_s3_url(source_url)
 
                 self.s3_client.download_file(bucket, key, local_path)
-                logger.info(f"Downloaded s3://{bucket}/{key} to: {local_path}")
+                logger.info("Downloaded s3://%s/%s to: %s", bucket, key, local_path)
 
         except Exception as e:
-            logger.error(f"Failed to download {source_url}: {str(e)}")
+            logger.error("Failed to download %s: %s", source_url, str(e))
             raise
 
     async def upload_file(
-        self, local_path: str, s3_key: str, content_type: str = None
+        self, local_path: str, s3_key: str, content_type: Optional[str] = None
     ) -> str:
         """
         Upload file to S3 and return pre-signed URL.
@@ -192,11 +191,11 @@ class S3Manager:
                 ExpiresIn=86400,  # 24 hours
             )
 
-            logger.info(f"Uploaded {local_path} to s3://{self.bucket_name}/{s3_key}")
+            logger.info("Uploaded %s to s3://%s/%s", local_path, self.bucket_name, s3_key)
             return presigned_url
 
         except Exception as e:
-            logger.error(f"Failed to upload {local_path}: {str(e)}")
+            logger.error("Failed to upload %s: %s", local_path, str(e))
             raise
 
     def list_voice_files(self, prefix: str = "voices/") -> list[Dict[str, Any]]:
@@ -237,11 +236,11 @@ class S3Manager:
                     }
                 )
 
-            logger.info(f"Found {len(files)} voice files")
+            logger.info("Found %d voice files", len(files))
             return files
 
         except Exception as e:
-            logger.error(f"Failed to list voice files: {str(e)}")
+            logger.error("Failed to list voice files: %s", str(e))
             raise
 
     def delete_old_outputs(self, max_age_hours: int = 24) -> int:
@@ -255,7 +254,7 @@ class S3Manager:
             int: Number of files deleted
         """
         try:
-            from datetime import datetime, timezone, timedelta
+            from datetime import datetime, timedelta, timezone
 
             cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
 
@@ -270,13 +269,13 @@ class S3Manager:
                         Bucket=self.bucket_name, Key=obj["Key"]
                     )
                     deleted_count += 1
-                    logger.debug(f"Deleted old output file: {obj['Key']}")
+                    logger.debug("Deleted old output file: %s", obj['Key'])
 
-            logger.info(f"Deleted {deleted_count} old output files")
+            logger.info("Deleted %d old output files", deleted_count)
             return deleted_count
 
         except Exception as e:
-            logger.error(f"Failed to delete old outputs: {str(e)}")
+            logger.error("Failed to delete old outputs: %s", str(e))
             return 0
 
     def get_bucket_usage(self) -> Dict[str, Any]:
@@ -314,24 +313,24 @@ class S3Manager:
             )
 
             # Add human-readable sizes
-            for category in stats:
-                size_bytes = stats[category]["size_bytes"]
+            for category, category_stats in stats.items():
+                size_bytes = category_stats["size_bytes"]
                 if size_bytes >= 1024**3:  # GB
-                    stats[category]["size_human"] = f"{size_bytes / (1024**3):.2f} GB"
+                    category_stats["size_human"] = f"{size_bytes / (1024**3):.2f} GB"
                 elif size_bytes >= 1024**2:  # MB
-                    stats[category]["size_human"] = f"{size_bytes / (1024**2):.2f} MB"
+                    category_stats["size_human"] = f"{size_bytes / (1024**2):.2f} MB"
                 elif size_bytes >= 1024:  # KB
-                    stats[category]["size_human"] = f"{size_bytes / 1024:.2f} KB"
+                    category_stats["size_human"] = f"{size_bytes / 1024:.2f} KB"
                 else:
-                    stats[category]["size_human"] = f"{size_bytes} bytes"
+                    category_stats["size_human"] = f"{size_bytes} bytes"
 
             logger.info(
-                f"Bucket usage: {stats['total']['count']} files, {stats['total']['size_human']}"
+                "Bucket usage: %d files, %s", stats['total']['count'], stats['total']['size_human']
             )
             return stats
 
         except Exception as e:
-            logger.error(f"Failed to get bucket usage: {str(e)}")
+            logger.error("Failed to get bucket usage: %s", str(e))
             return {}
 
 

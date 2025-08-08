@@ -8,7 +8,7 @@ for use with ffmpeg and video players.
 """
 
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             lines.append(current_line)
 
         logger.info(
-            f"Grouped {len(word_timings)} words into {len(lines)} subtitle lines"
+            "Grouped %d words into %d subtitle lines", len(word_timings), len(lines)
         )
         return lines
 
@@ -312,7 +312,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 escaped_text = self._escape_ass_text(line_text)
 
                 # Add regular dialogue line
-                dialogue_line = f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{escaped_text}\n"
+                dialogue_line = (
+                    f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{escaped_text}\n"
+                )
                 ass_content += dialogue_line
 
                 # Add karaoke line if requested
@@ -323,20 +325,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     k_start_time = self._format_time(k_start)
                     k_end_time = self._format_time(k_end)
 
-                    karaoke_line = f"Dialogue: 1,{k_start_time},{k_end_time},Karaoke,,0,0,0,,{karaoke_text}\n"
+                    karaoke_line = (
+                        f"Dialogue: 1,{k_start_time},{k_end_time},Karaoke,,0,0,0,,{karaoke_text}\n"
+                    )
                     ass_content += karaoke_line
 
-            logger.info(f"Generated ASS subtitles with {len(word_lines)} lines")
+            logger.info("Generated ASS subtitles with %d lines", len(word_lines))
             return ass_content
 
         except Exception as e:
-            logger.error(f"Failed to generate ASS subtitles: {str(e)}")
+            logger.error("Failed to generate ASS subtitles: %s", str(e))
             raise
 
     def generate_simple(
         self,
         text: str,
-        duration: float = None,
+        duration: Optional[float] = None,
         title: str = "SparkTTS Generated Subtitles",
     ) -> str:
         """
@@ -387,14 +391,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 end_time = self._format_time((i + 1) * line_duration)
 
                 escaped_text = self._escape_ass_text(line_text)
-                dialogue_line = f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{escaped_text}\n"
+                dialogue_line = (
+                    f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{escaped_text}\n"
+                )
                 ass_content += dialogue_line
 
-            logger.info(f"Generated simple ASS subtitles with {len(lines)} lines")
+            logger.info("Generated simple ASS subtitles with %d lines", len(lines))
             return ass_content
 
         except Exception as e:
-            logger.error(f"Failed to generate simple ASS subtitles: {str(e)}")
+            logger.error("Failed to generate simple ASS subtitles: %s", str(e))
             raise
 
     def validate_ass_content(self, ass_content: str) -> Dict[str, Any]:
@@ -455,12 +461,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             }
 
             logger.info(
-                f"ASS validation: {dialogue_count} lines, {total_duration:.2f}s duration, valid={is_valid}"
+                "ASS validation: %d lines, %.2fs duration, valid=%s",
+                dialogue_count, total_duration, is_valid
             )
             return results
 
         except Exception as e:
-            logger.error(f"ASS validation failed: {str(e)}")
+            logger.error("ASS validation failed: %s", str(e))
             return {"is_valid": False, "error": str(e)}
 
     def _parse_ass_time(self, time_str: str) -> float:
@@ -493,7 +500,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 # Convenience functions
 def generate_ass_subtitles(
     text: str,
-    word_timings: List[Dict[str, Any]] = None,
+    word_timings: Optional[List[Dict[str, Any]]] = None,
     title: str = "SparkTTS Generated Subtitles",
     include_karaoke: bool = True,
 ) -> str:
