@@ -7,11 +7,11 @@ Licensed under the Apache License, Version 2.0
 This script downloads and caches models to /runpod-volume/Spark-TTS/
 """
 
-import os
-import sys
 import logging
-import subprocess
+import os
 import shutil
+import subprocess
+import sys
 
 # Configure logging
 logging.basicConfig(
@@ -96,7 +96,7 @@ def download_huggingface_model(repo_url: str, local_path: str) -> bool:
         # Initialize git-lfs if available
         if check_git_lfs():
             lfs_cmd = ["git", "lfs", "pull"]
-            logger.info(f"Pulling LFS files...")
+            logger.info("Pulling LFS files...")
             lfs_result = subprocess.run(
                 lfs_cmd, cwd=local_path, capture_output=True, text=True
             )
