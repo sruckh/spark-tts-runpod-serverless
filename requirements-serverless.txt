@@ -1,0 +1,95 @@
+# Spark-TTS RunPod Serverless Requirements
+# Copyright (c) 2025 SparkAudio
+# Licensed under the Apache License, Version 2.0
+
+# Core dependencies from original requirements.txt
+einops==0.8.1
+einx==0.3.0
+numpy==2.2.3
+omegaconf==2.3.0
+packaging==24.2
+safetensors==0.5.2
+soundfile==0.12.1
+soxr==0.5.0.post1
+tqdm==4.66.5
+transformers==4.46.2
+
+# PyTorch is installed separately in Dockerfile with specific CUDA version
+# torch==2.6.0 (installed via pip with CUDA 12.6 index)
+# torchaudio==2.6.0 (installed via pip with CUDA 12.6 index) 
+# torchvision==0.21.0 (installed via pip with CUDA 12.6 index)
+
+# Flash attention is installed separately in Dockerfile from wheel
+# flash_attn==2.8.0.post2 (installed from GitHub wheel)
+
+# RunPod serverless runtime
+runpod==1.6.2
+
+# S3 and AWS integration
+boto3==1.35.67
+botocore==1.35.67
+
+# HTTP client for async operations
+aiohttp==3.10.11
+aiofiles==24.1.0
+
+# WhisperX for word-level timing
+whisperx==3.1.6
+faster-whisper==1.1.0
+
+# Audio processing
+librosa==0.10.2.post1
+resampy==0.4.3
+
+# Advanced SubStation Alpha subtitle support
+ass==0.5.4
+
+# Additional utilities
+python-dotenv==1.0.1
+Pillow==11.0.0
+requests==2.32.3
+urllib3==2.2.3
+
+# Development and quality tools
+pylint==3.3.1
+flake8==7.1.1
+black==24.10.0
+isort==5.13.2
+
+# Testing (optional, for local testing)
+pytest==8.3.3
+pytest-asyncio==0.24.0
+
+# JSON schema validation
+jsonschema==4.23.0
+
+# Async support
+asyncio-throttle==1.0.2
+
+# Memory optimization
+psutil==6.1.0
+memory-profiler==0.61.0
+
+# Error tracking and monitoring
+sentry-sdk==2.18.0
+
+# Configuration management
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Logging enhancements
+structlog==24.5.0
+coloredlogs==15.0.1
+
+# Performance monitoring
+py-spy==0.3.14
+
+# File format support
+mutagen==1.47.0  # Audio metadata
+pymediainfo==6.1.0  # Media info extraction
+
+# Cache support
+diskcache==5.6.3
+
+# Progress bars and UI
+rich==13.9.4
