@@ -1,0 +1,30 @@
+# Runtime requirements for Spark-TTS Runpod Serverless
+# These are installed on /runpod-volume, not in the container
+
+# Core dependencies
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
+transformers==4.46.2
+
+# Audio processing
+soundfile==0.12.1
+soxr==0.5.0.post1
+
+# Model handling
+einops==0.8.1
+numpy==2.2.3
+safetensors==0.5.2
+omegaconf==2.3.0
+
+# Serverless and cloud
+runpod==1.6.2
+boto3==1.34.25
+huggingface-hub==0.20.2
+
+# Optional features
+whisperx @ git+https://github.com/m-bain/whisperX.git
+ass==0.5.2
+
+# Utilities
+tqdm==4.66.5
